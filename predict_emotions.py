@@ -13,21 +13,23 @@ import glob
 import librosa
 import math
 
-os.environ['CUDA_VISIBLE_DEVICES'] = '-1'  # stop attempted use of GPU
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"  # stop attempted use of GPU
 
 
 def predict_emotions():
     # NOTE: "Surprised" is not represented in the the audio dataset so there are 7 emotions to train for
     emotions = ["neutral", "calm", "happy", "sad", "angry", "fearful", "disgust"]
+
+    # lists used to hold the features and labels of all the parsed files
     all_feat = []
     all_lab = []
     all_files = []
 
-    # Data pre-processing: Looks for dataset within the current directory under folder "data"
+    # Data pre-processing: Looks for all audio files of each actor within the current directory under folder "data"
     actor_paths = [x[0] for x in os.walk(os.path.join(os.path.dirname(os.path.abspath(__file__)), "data"))]
     actor_paths.pop(0)
     for path in actor_paths:
-        for filepath in glob.glob(os.path.join(path, '*.wav')):
+        for filepath in glob.glob(os.path.join(path, "*.wav")):
             features = []  # holds all features for one audio file
             y, sr = librosa.load(filepath, sr=None)
             chroma_shft = librosa.feature.chroma_stft(y=y, sr=sr)  # captures harmonic/melodic shifts
@@ -50,6 +52,10 @@ def predict_emotions():
 
             print("Parsed audio file: ", filename)
 
+    # standardize the feature values so weights and biases have a bigger impact
+    scaler = StandardScaler()
+    all_feat = scaler.fit_transform(np.array(all_feat, dtype=float))
+
     # split the files into training and testing lists
     perc_train = .80
     num_train = math.floor(len(all_files) * perc_train)
@@ -65,21 +71,16 @@ def predict_emotions():
     # print("Training files: \n", train)
     # print("Testing files: \n", test)
 
-    # standardize the feature values so weights and biases have a bigger impact
-    scaler = StandardScaler()
-    train_feat = scaler.fit_transform(np.array(train_feat, dtype=float))
-    test_feat = scaler.fit_transform(np.array(test_feat, dtype=float))
-
     # neural network model creation
     model = keras.Sequential([
-        keras.layers.Flatten(input_shape=(25,)),  # 26 input nodes to match the number of features
-        keras.layers.Dense(15, activation='relu'),
-        keras.layers.Dense(7, activation='softmax')  # 7 output nodes to match the number of emotions
+        keras.layers.Flatten(input_shape=(25,)),  # 25 input nodes to match the number of features
+        keras.layers.Dense(15, activation="relu"),
+        keras.layers.Dense(7, activation="softmax")  # 7 output nodes to match the number of emotions
     ])
 
-    model.compile(optimizer='adam',
-                  loss='sparse_categorical_crossentropy',
-                  metrics=['accuracy'])
+    model.compile(optimizer="adam",
+                  loss="sparse_categorical_crossentropy",
+                  metrics=["accuracy"])
 
     # neural network training
     model.fit(train_feat, train_lab, epochs=8)
@@ -95,12 +96,12 @@ def predict_emotions():
     #     print(x, " Predicted: ", predicted, " Actual: ", actual)
     #     if predicted == actual:
     #         success += 1
-    # print('Prediction success: ', (success/len(predictions)))
+    # print("Prediction success: ", (success/len(predictions)))
 
     # print accuracy of test set
     acc = model.evaluate(test_feat, test_lab)
-    print('Accuracy on test values: ', acc[1])
+    print("Accuracy on test values: ", acc[1])
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     predict_emotions()
