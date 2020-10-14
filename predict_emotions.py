@@ -13,14 +13,12 @@ import glob
 import librosa
 import math
 
-os.environ['CUDA_VISIBLE_DEVICES'] = '-1'  # stops attempted use of GPU
+os.environ['CUDA_VISIBLE_DEVICES'] = '-1'  # stop attempted use of GPU
 
 
 def predict_emotions():
     # NOTE: "Surprised" is not represented in the the audio dataset so there are 7 emotions to train for
     emotions = ["neutral", "calm", "happy", "sad", "angry", "fearful", "disgust"]
-
-    # lists used to hold audio file features and labels
     all_feat = []
     all_lab = []
     all_files = []
@@ -33,26 +31,26 @@ def predict_emotions():
             features = []  # holds all features for one audio file
             y, sr = librosa.load(filepath, sr=None)
             chroma_shft = librosa.feature.chroma_stft(y=y, sr=sr)  # captures harmonic/melodic shifts
-            rms = librosa.feature.rms(y=y)[0]  # root mean square: calculates the "intensity" of the sound
+            rms = librosa.feature.rms(y=y)[0]  # calculates the "intensity" of the sound
             spec_cent = librosa.feature.spectral_centroid(y=y, sr=sr)  # "center of mass" of the sound
             spec_roll = librosa.feature.spectral_rolloff(y=y, sr=sr)  # frequency at which 85% of the energy is below it
             zcr = librosa.feature.zero_crossing_rate(y)  # number of times signal has crossed 0
-            mfcc = librosa.feature.mfcc(y=y, sr=sr)  # 10 features which together describe the spectral envelope
+            mfcc = librosa.feature.mfcc(y=y, sr=sr)  # 20 features which together describe the spectral envelope
 
             # takes the mean of each feature to get the average value across all frames
             features.extend([np.mean(chroma_shft), np.mean(rms), np.mean(spec_cent), np.mean(spec_roll), np.mean(zcr)])
             for f in mfcc:
                 features.append(np.mean(f))
 
-            # populates the training lists with the features and labels for one file
+            # populates the feature and label lists
             filename = os.path.basename(filepath)
             all_feat.append(features)
-            all_lab.append(int(filename.split("-")[2]))  # pulls actual emotion label from file name
+            all_lab.append(int(filename.split("-")[2]))  # pulls emotion label from file name
             all_files.append(filename)
 
             print("Parsed audio file: ", filename)
 
-    # split files into training and testing lists
+    # split the files into training and testing lists
     perc_train = .80
     num_train = math.floor(len(all_files) * perc_train)
 
@@ -67,7 +65,7 @@ def predict_emotions():
     # print("Training files: \n", train)
     # print("Testing files: \n", test)
 
-    # normalizes the feature values so weights and biases have a bigger impact
+    # standardize the feature values so weights and biases have a bigger impact
     scaler = StandardScaler()
     train_feat = scaler.fit_transform(np.array(train_feat, dtype=float))
     test_feat = scaler.fit_transform(np.array(test_feat, dtype=float))
@@ -99,7 +97,7 @@ def predict_emotions():
     #         success += 1
     # print('Prediction success: ', (success/len(predictions)))
 
-    # prints accuracy of test set
+    # print accuracy of test set
     acc = model.evaluate(test_feat, test_lab)
     print('Accuracy on test values: ', acc[1])
 
